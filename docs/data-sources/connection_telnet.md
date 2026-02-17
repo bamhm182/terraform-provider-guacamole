@@ -2,24 +2,18 @@
 page_title: "Connection Telnet Data Source - terraform-provider-guacamole"
 subcategory: ""
 description: |-
-  The connection_telnet data source allows you to retrieve a guacamole telnet connection details by identifier or path
+  The connection_telnet data source allows you to retrieve a guacamole telnet connection details by identifier
 ---
 
 # Data Source `guacamole_connection_telnet`
 
-The connection_telnet data source allows you to retrieve a guacamole telnet connection details by identifier or path
+The connection_telnet data source allows you to retrieve a guacamole telnet connection details by identifier
 
 ## Example Usage
 
 ```terraform
 data "guacamole_connection_telnet" "telnet" {
   identifier = 1234
-}
-```
-
-```terraform
-data "guacamole_connection_telnet" "telnet" {
-  path = "parentGroupName/connectionName"
 }
 ```
 
@@ -30,7 +24,6 @@ The following attributes are exported.
 ### Base
 
 - `name` -  (string) Name of the connection
-- `path` -  (string) Used in place of identifier to find a path by "ParentName/TargetName" when the identifier is unknown
 - `identifier` -  (string) Numeric identifier of the telnet connection
 - `parent_identifier` -  (string) Numeric identifier of the parent connection
 - `protocol` -  (string) protocol of the connection (`telnet`).
@@ -56,6 +49,7 @@ The following attributes are exported.
 - `port` - (string) port
 #### *Authentication*
 - `username` - (string) username
+- `password` - (string) password
 - `username_regex` - (string) username regular expression
 - `password_regex` - (string) password regular expression
 - `login_success_regex` - (string) login success regular expression
@@ -86,7 +80,7 @@ The following attributes are exported.
 - `readonly` - (bool) display is read-only
 #### *Clipboard*
 - `disable_copy` - (bool) disable copying from the terminal
-- `disable_paste` - (bool) disable pastiong from client
+- `disable_paste` - (bool) disable pasting from client
 #### *Terminal Behavior*
 - `backspace` - (string) backspace key sends.  Value should be on of:
   - `127`
@@ -97,7 +91,7 @@ The following attributes are exported.
   - `vt100`
   - `vt220`
   - `xterm`
-  - `xterm-25color`
+  - `xterm-256color`
 #### *Typescript (Text Session Recording)*
 - `typescript_path` - (string) typescript path
 - `typescript_name` - (string) typescript name

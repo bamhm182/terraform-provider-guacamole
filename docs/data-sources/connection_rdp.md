@@ -2,24 +2,18 @@
 page_title: "Connection RDP Data Source - terraform-provider-guacamole"
 subcategory: ""
 description: |-
-  The connection_rdp data source allows you to retrieve a guacamole rdp connection details by identifier or path
+  The connection_rdp data source allows you to retrieve a guacamole rdp connection details by identifier
 ---
 
 # Data Source `guacamole_connection_rdp`
 
-The connection_rdp data source allows you to retrieve a guacamole rdp connection details by identifier or path
+The connection_rdp data source allows you to retrieve a guacamole rdp connection details by identifier
 
 ## Example Usage
 
 ```terraform
 data "guacamole_connection_rdp" "rdp" {
   identifier = 1234
-}
-```
-
-```terraform
-data "guacamole_connection_rdp" "rdp" {
-  path = "parentGroupName/connectionName"
 }
 ```
 
@@ -30,7 +24,6 @@ The following attributes are exported.
 ### Base
 
 - `name` -  (string) Name of the connection
-- `path` -  (string) Used in place of identifier to find a path by "ParentName/TargetName" when the identifier is unknown
 - `identifier` -  (string) Numeric identifier of the rdp connection
 - `parent_identifier` -  (string) Numeric identifier of the parent connection
 - `protocol` -  (string) protocol of the connection (`rdp`).
@@ -108,7 +101,7 @@ The following attributes are exported.
 - `readonly` - (bool) display is read-only
 #### *Clipboard*
 - `disable_copy` - (bool) disable copying from the terminal
-- `disable_paste` - (bool) disable pastiong from client
+- `disable_paste` - (bool) disable pasting from client
 #### *Device Redirection*
 - `console_audio` - (bool) support audio in console
 - `disable_audio` - (bool) disable audio

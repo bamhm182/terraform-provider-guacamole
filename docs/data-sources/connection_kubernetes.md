@@ -2,24 +2,18 @@
 page_title: "Connection Kubernetes Data Source - terraform-provider-guacamole"
 subcategory: ""
 description: |-
-  The connection_kubernetes data source allows you to retrieve a guacamole kubernetes connection details by identifier or path
+  The connection_kubernetes data source allows you to retrieve a guacamole kubernetes connection details by identifier
 ---
 
 # Data Source `guacamole_connection_kubernetes`
 
-The connection_kubernetes data source allows you to retrieve a guacamole kubernetes connection details by identifier or path
+The connection_kubernetes data source allows you to retrieve a guacamole kubernetes connection details by identifier
 
 ## Example Usage
 
 ```terraform
 data "guacamole_connection_kubernetes" "kubernetes" {
   identifier = 1234
-}
-```
-
-```terraform
-data "guacamole_connection_kubernetes" "kubernetes" {
-  path = "parentGroupName/connectionName"
 }
 ```
 
@@ -30,7 +24,6 @@ The following attributes are exported.
 ### Base
 
 - `name` -  (string) Name of the connection
-- `path` -  (string) Used in place of identifier to find a path by "ParentName/TargetName" when the identifier is unknown
 - `identifier` -  (string) Numeric identifier of the kubernetes connection
 - `parent_identifier` -  (string) Numeric identifier of the parent connection
 - `protocol` -  (string) protocol of the connection (`kubernetes`).
@@ -54,13 +47,15 @@ The following attributes are exported.
 #### *Network*
 - `hostname` - (string) hostname
 - `port` - (string) port
-- `public_host_key` - (string) public host key
+- `use_ssl` - (bool) use SSL
+- `ignore_cert` - (bool) ignore cert errors
+- `ca_cert` - (string) CA certificate
 #### Container
 - `namespace` - (string)
 - `pod` - (string)
 - `container` - (string)
 #### *Authentication*
-- `client_certificate` - (string) client certificate
+- `client_cert` - (string) client certificate
 - `client_key` - (string) client key
 #### *Display*
 - `color_scheme` - (string) color scheme: Value should be on of:

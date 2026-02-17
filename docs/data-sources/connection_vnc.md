@@ -2,24 +2,18 @@
 page_title: "Connection VNC Data Source - terraform-provider-guacamole"
 subcategory: ""
 description: |-
-  The connection_vnc data source allows you to retrieve a guacamole vnc connection details by identifier or path
+  The connection_vnc data source allows you to retrieve a guacamole vnc connection details by identifier
 ---
 
 # Data Source `guacamole_connection_vnc`
 
-The connection_vnc data source allows you to retrieve a guacamole vnc connection details by identifier or path
+The connection_vnc data source allows you to retrieve a guacamole vnc connection details by identifier
 
 ## Example Usage
 
 ```terraform
 data "guacamole_connection_vnc" "vnc" {
   identifier = 1234
-}
-```
-
-```terraform
-data "guacamole_connection_vnc" "vnc" {
-  path = "parentGroupName/connectionName"
 }
 ```
 
@@ -30,7 +24,6 @@ The following attributes are exported.
 ### Base
 
 - `name` -  (string) Name of the connection
-- `path` -  (string) Used in place of identifier to find a path by "ParentName/TargetName" when the identifier is unknown
 - `identifier` -  (string) Numeric identifier of the vnc connection
 - `parent_identifier` -  (string) Numeric identifier of the parent connection
 - `protocol` -  (string) protocol of the connection (`vnc`).
@@ -56,6 +49,7 @@ The following attributes are exported.
 - `port` - (string) port
 #### *Authentication*
 - `username` - (string) username
+- `password` - (string) password
 #### *Display*
 - `readonly` - (bool) display is read-only
 - `swap_red_blue` - (bool) swap red/blue components
@@ -69,7 +63,8 @@ The following attributes are exported.
   - `32`
 #### *Clipboard*
 - `disable_copy` - (bool) disable copying from the terminal
-- `disable_paste` - (bool) disable pastiong from client
+- `disable_paste` - (bool) disable pasting from client
+- `clipboard_encoding` - (string) clipboard encoding
 #### VNC Repeater
 - `destination_host` - (string) destination host
 - `destination_port` - (string) destination port

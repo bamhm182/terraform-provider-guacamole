@@ -6,10 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bamhm182/go-guacamole/guacamole"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	guac "github.com/techBeck03/guacamole-api-client"
-	types "github.com/techBeck03/guacamole-api-client/types"
 )
 
 func guacamoleConnectionGroup() *schema.Resource {
@@ -26,7 +25,7 @@ func guacamoleConnectionGroup() *schema.Resource {
 			},
 			"parent_identifier": {
 				Type:        schema.TypeString,
-				Description: "Parent Identifier of guacamole connection group",
+				Description: "Parent identifier of guacamole connection group",
 				Required:    true,
 			},
 			"name": {
@@ -36,7 +35,7 @@ func guacamoleConnectionGroup() *schema.Resource {
 			},
 			"type": {
 				Type:        schema.TypeString,
-				Description: "Type of guacamole connection group",
+				Description: "Type of guacamole connection group (ORGANIZATIONAL or BALANCING)",
 				Optional:    true,
 				Default:     "ORGANIZATIONAL",
 				StateFunc: func(val interface{}) string {
@@ -53,6 +52,7 @@ func guacamoleConnectionGroup() *schema.Resource {
 				Description: "Attributes of guacamole connection group",
 				Optional:    true,
 				Computed:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"max_connections": {
@@ -84,206 +84,124 @@ func guacamoleConnectionGroup() *schema.Resource {
 }
 
 func resourceConnectionGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
+	client := m.(*guacamole.Client)
 
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	validate := validateConnectionGroup(d, client)
-
-	if validate.HasError() {
-		return validate
-	}
-
-	group, check := convertResourceDataToGuacConnectionGroup(d)
-
-	if check.HasError() {
+	if check := validateConnectionGroup(d); check.HasError() {
 		return check
 	}
 
-	err := client.CreateConnectionGroup(&group)
+	group := convertResourceDataToGuacConnectionGroup(d)
 
+	created, err := client.CreateConnectionGroup(ctx, group)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	d.Set("identifier", group.Identifier)
-	d.SetId(group.Identifier)
-
-	if diags.HasError() {
-		return diags
-	}
+	d.Set("identifier", created.Identifier)
+	d.SetId(created.Identifier)
 
 	return resourceConnectionGroupRead(ctx, d, m)
 }
 
 func resourceConnectionGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
+	client := m.(*guacamole.Client)
 
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	identifier := d.Id()
-
-	group, err := client.ReadConnectionGroup(identifier)
-
+	id := d.Id()
+	group, err := client.GetConnectionGroup(ctx, id)
 	if err != nil {
-		return diag.FromErr(err)
+		if guacamole.IsNotFound(err) {
+			d.SetId("")
+			return nil
+		}
+		return diag.FromErr(fmt.Errorf("read connection group %s: %w", id, err))
 	}
 
-	check := convertGuacConnectionGroupToResourceData(d, &group)
-	if check.HasError() {
-		return check
-	}
+	convertGuacConnectionGroupToResourceData(d, group)
+	d.SetId(id)
 
-	d.SetId(identifier)
-
-	return diags
+	return nil
 }
 
 func resourceConnectionGroupUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
-	var diags diag.Diagnostics
+	client := m.(*guacamole.Client)
 
-	if d.HasChanges("name", "identifier", "parent_identifier", "type", "attributes") {
-		validate := validateConnectionGroup(d, client)
-
-		if validate.HasError() {
-			return validate
-		}
-
-		group, check := convertResourceDataToGuacConnectionGroup(d)
-
-		if check.HasError() {
+	if d.HasChanges("name", "parent_identifier", "type", "attributes") {
+		if check := validateConnectionGroup(d); check.HasError() {
 			return check
 		}
-
-		err := client.UpdateConnectionGroup(&group)
-
-		if err != nil {
+		group := convertResourceDataToGuacConnectionGroup(d)
+		if err := client.UpdateConnectionGroup(ctx, d.Id(), group); err != nil {
 			return diag.FromErr(err)
 		}
-
-		d.SetId(group.Identifier)
-
-	} else {
-		d.SetId(d.Id())
-	}
-
-	if diags.HasError() {
-		return diags
 	}
 
 	return resourceConnectionGroupRead(ctx, d, m)
 }
 
 func resourceConnectionGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
-
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	identifier := d.Id()
-
-	err := client.DeleteConnectionGroup(identifier)
-	if err != nil {
+	client := m.(*guacamole.Client)
+	if err := client.DeleteConnectionGroup(ctx, d.Id()); err != nil {
 		return diag.FromErr(err)
 	}
-
 	d.SetId("")
-
-	return diags
+	return nil
 }
 
-func convertResourceDataToGuacConnectionGroup(d *schema.ResourceData) (types.GuacConnectionGroup, diag.Diagnostics) {
-	var group types.GuacConnectionGroup
-	var diags diag.Diagnostics
+func convertResourceDataToGuacConnectionGroup(d *schema.ResourceData) guacamole.ConnectionGroup {
+	group := guacamole.ConnectionGroup{
+		Identifier:       d.Get("identifier").(string),
+		ParentIdentifier: d.Get("parent_identifier").(string),
+		Name:             d.Get("name").(string),
+		Type:             strings.ToUpper(d.Get("type").(string)),
+	}
 
-	group.Identifier = d.Get("identifier").(string)
-	group.ParentIdentifier = d.Get("parent_identifier").(string)
-	group.Name = d.Get("name").(string)
-	group.Type = strings.ToUpper(d.Get("type").(string))
-
-	attributeList := d.Get("attributes").([]interface{})
-
-	if len(attributeList) > 0 {
-		attributes := attributeList[0].(map[string]interface{})
-		group.Attributes = types.GuacConnectionGroupAttributes{
-			MaxConnections:        attributes["max_connections"].(string),
-			MaxConnectionsPerUser: attributes["max_connections_per_user"].(string),
-			EnableSessionAffinity: boolToString(attributes["enable_session_affinity"].(bool)),
+	attrList := d.Get("attributes").([]interface{})
+	if len(attrList) > 0 {
+		attrs := attrList[0].(map[string]interface{})
+		group.Attributes = guacamole.NullableStringMap{
+			"max-connections":          attrs["max_connections"].(string),
+			"max-connections-per-user": attrs["max_connections_per_user"].(string),
+			"enable-session-affinity":  boolToString(attrs["enable_session_affinity"].(bool)),
 		}
 	}
 
-	return group, diags
+	return group
 }
 
-func convertGuacConnectionGroupToResourceData(d *schema.ResourceData, group *types.GuacConnectionGroup) diag.Diagnostics {
+func convertGuacConnectionGroupToResourceData(d *schema.ResourceData, group *guacamole.ConnectionGroup) {
 	d.Set("identifier", group.Identifier)
 	d.Set("parent_identifier", group.ParentIdentifier)
 	d.Set("name", group.Name)
 	d.Set("type", group.Type)
+	d.Set("active_connections", group.ActiveConnections)
 
 	attributes := map[string]interface{}{
-		"max_connections":          group.Attributes.MaxConnections,
-		"max_connections_per_user": group.Attributes.MaxConnectionsPerUser,
-		"enable_session_affinity":  stringToBool(group.Attributes.EnableSessionAffinity),
+		"max_connections":          group.Attributes["max-connections"],
+		"max_connections_per_user": group.Attributes["max-connections-per-user"],
+		"enable_session_affinity":  stringToBool(group.Attributes["enable-session-affinity"]),
 	}
-	var attributeList []map[string]interface{}
-
-	attributeList = append(attributeList, attributes)
-
-	d.Set("attributes", attributeList)
-
-	return nil
+	d.Set("attributes", []interface{}{attributes})
 }
 
-func validateConnectionGroup(d *schema.ResourceData, client *guac.Client) diag.Diagnostics {
+func validateConnectionGroup(d *schema.ResourceData) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	connectionGroupInterface := types.GuacConnectionGroup{}
-	// validate connection group restricted values
-	connectionGroupRestricedValueParameters := map[string][]string{
-		"type": connectionGroupInterface.ValidTypes(),
-	}
-	// parameters that need be to forced to upper case
-	forceUpperCaseParameters := []string{
-		"type",
+	groupType := strings.ToUpper(d.Get("type").(string))
+	if check := stringInSlice([]string{"ORGANIZATIONAL", "BALANCING"}, []string{groupType}); check.HasError() {
+		diags = append(diags, check...)
 	}
 
-	for k, v := range connectionGroupRestricedValueParameters {
-		var value string
-		capitalizationCheck := stringInSlice(forceUpperCaseParameters, []string{k})
-		if !capitalizationCheck.HasError() {
-			value = strings.ToUpper(d.Get(k).(string))
-		} else {
-			value = d.Get(k).(string)
-		}
-		check := stringInSlice(v, []string{value})
-		if check.HasError() {
-			diags = append(diags, check...)
-		}
-	}
-
-	// validate attributes
-	attributeList := d.Get("attributes").([]interface{})
-
-	stringIntAttributes := []string{
-		"max_connections",
-		"max_connections_per_user",
-	}
-
-	if len(attributeList) > 0 {
-		attributes := attributeList[0].(map[string]interface{})
-		// validate string integer values
-		for _, v := range stringIntAttributes {
-			if attributes[v].(string) != "" {
-				_, err := strconv.Atoi(attributes[v].(string))
-				if err != nil {
+	attrList := d.Get("attributes").([]interface{})
+	if len(attrList) > 0 {
+		attrs := attrList[0].(map[string]interface{})
+		for _, key := range []string{"max_connections", "max_connections_per_user"} {
+			val := attrs[key].(string)
+			if val != "" {
+				if _, err := strconv.Atoi(val); err != nil {
 					diags = append(diags, diag.Diagnostic{
 						Severity: diag.Error,
 						Summary:  "Invalid entry",
-						Detail:   fmt.Sprintf("Expected string integer for attribute key: %s but was unable to convert: %s to integer", v, attributes[v].(string)),
+						Detail:   fmt.Sprintf("Expected string integer for %s, got: %s", key, val),
 					})
 				}
 			}

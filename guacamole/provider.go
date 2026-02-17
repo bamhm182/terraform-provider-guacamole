@@ -2,15 +2,18 @@ package guacamole
 
 import (
 	"context"
+	"crypto/tls"
+	"net/http"
 	"strings"
+	"time"
 
+	"github.com/bamhm182/go-guacamole/guacamole"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	guac "github.com/techBeck03/guacamole-api-client"
 )
 
-// Provider -
+// Provider returns the Guacamole Terraform provider.
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
@@ -47,24 +50,11 @@ func Provider() *schema.Provider {
 				ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"postgresql", "mysql"}, true)),
 				DefaultFunc:      schema.EnvDefaultFunc("GUACAMOLE_DATA_SOURCE", nil),
 			},
-			"cookies": {
-				Type:     schema.TypeMap,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
 			"disable_tls_verification": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("GUACAMOLE_DISABLE_TLS", false),
-			},
-			"disable_cookies": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("GUACAMOLE_DISABLE_COOKIES", false),
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
@@ -76,6 +66,7 @@ func Provider() *schema.Provider {
 			"guacamole_connection_vnc":        guacamoleConnectionVNC(),
 			"guacamole_connection_kubernetes": guacamoleConnectionKubernetes(),
 			"guacamole_connection_group":      guacamoleConnectionGroup(),
+			"guacamole_sharing_profile":       guacamoleSharingProfile(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"guacamole_user":                  dataSourceUser(),
@@ -86,84 +77,44 @@ func Provider() *schema.Provider {
 			"guacamole_connection_vnc":        dataSourceConnectionVNC(),
 			"guacamole_connection_kubernetes": dataSourceConnectionKubernetes(),
 			"guacamole_connection_group":      dataSourceConnectionGroup(),
+			"guacamole_sharing_profile":       dataSourceSharingProfile(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
 }
 
 func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
-	url := strings.TrimRight(d.Get("url").(string), "/")
-	username := d.Get("username").(string)
-	password := d.Get("password").(string)
-	token := d.Get("token").(string)
-	data_source := d.Get("data_source").(string)
-	disableTLS := d.Get("disable_tls_verification").(bool)
-	disableCookies := d.Get("disable_cookies").(bool)
+	var diags diag.Diagnostics
 
-	cookies := make(map[string]string)
-	cookieMap := d.Get("cookies").(map[string]interface{})
-	if len(cookieMap) > 0 {
-		for k, v := range cookieMap {
-			cookies[k] = v.(string)
+	rawURL := strings.TrimRight(d.Get("url").(string), "/")
+	disableTLS := d.Get("disable_tls_verification").(bool)
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	if disableTLS {
+		httpClient.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 		}
 	}
 
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	config := guac.Config{
-		URL:                    url,
-		Username:               username,
-		Password:               password,
-		Token:                  token,
-		DataSource:             data_source,
-		Cookies:                cookies,
-		DisableTLSVerification: disableTLS,
-		DisableCookies:         disableCookies,
+	token := d.Get("token").(string)
+	if token != "" {
+		dataSource := d.Get("data_source").(string)
+		client := guacamole.NewClientWithToken(rawURL, token, dataSource, httpClient)
+		return client, diags
 	}
 
-	// Check for required provider parameters
-	check := validate(config)
+	username := d.Get("username").(string)
+	password := d.Get("password").(string)
 
-	if check.HasError() {
-		return nil, check
-	}
-
-	client := guac.New(config)
-
-	err := client.Connect()
-
-	if err != nil {
+	client := guacamole.NewClientWithHTTPClient(rawURL, httpClient)
+	if err := client.Authenticate(ctx, username, password); err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Unable to create guacamole client",
+			Summary:  "Unable to authenticate with Guacamole",
 			Detail:   err.Error(),
 		})
-
 		return nil, diags
 	}
 
-	return &client, diags
-}
-
-// validate validates the config needed to initialize a guacamole client,
-// returning a single error with all validation errors, or nil if no error.
-func validate(config guac.Config) diag.Diagnostics {
-	var diags diag.Diagnostics
-
-	if config.URL == "" {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "Missing provider parameter",
-			Detail:   "URL must be configured for the guacamole provider",
-		})
-	}
-	if config.Password == "" && config.Token == "" {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "Missing provider parameter",
-			Detail:   "Either username/password or token/data_source must be configured for the guacamole provider",
-		})
-	}
-	return diags
+	return client, diags
 }

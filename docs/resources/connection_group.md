@@ -7,7 +7,7 @@ description: |-
 
 # Resource `guacamole_connection_group`
 
-The user group data source allows you to retrieve a guacamole user group by identifier
+The connection group resource allows you to configure a guacamole connection group
 
 ## Example Usage
 
@@ -46,7 +46,7 @@ In addition to all the arguments above, the following attributes are exported.
 - `identifier` -  (string) numeric identifier of the connection group
 - `active_connections` - (sting) number of active connections for the group
 - `member_connections` - (List) list of connection identifiers whose parent is this connection group
-- `member_connection_groups` - (List) list of connection group identifiers whose parent is this user group
+- `member_connection_groups` - (List) list of connection group identifiers whose parent is this connection group
 
 ## Import
 

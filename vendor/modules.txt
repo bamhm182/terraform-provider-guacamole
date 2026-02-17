@@ -4,6 +4,9 @@ github.com/agext/levenshtein
 # github.com/apparentlymart/go-textseg/v13 v13.0.0
 ## explicit; go 1.16
 github.com/apparentlymart/go-textseg/v13/textseg
+# github.com/bamhm182/go-guacamole v1.6.0
+## explicit; go 1.24.1
+github.com/bamhm182/go-guacamole/guacamole
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -168,10 +171,6 @@ github.com/mitchellh/reflectwalk
 # github.com/oklog/run v1.0.0
 ## explicit
 github.com/oklog/run
-# github.com/techBeck03/guacamole-api-client v1.4.1
-## explicit; go 1.15
-github.com/techBeck03/guacamole-api-client
-github.com/techBeck03/guacamole-api-client/types
 # github.com/vmihailenco/msgpack v4.0.4+incompatible
 ## explicit
 github.com/vmihailenco/msgpack

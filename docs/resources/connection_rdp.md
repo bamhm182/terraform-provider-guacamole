@@ -117,7 +117,7 @@ resource "guacamole_connection_rdp" "rdp" {
 - `readonly` - (bool) display is read-only
 #### *Clipboard*
 - `disable_copy` - (bool) disable copying from the terminal
-- `disable_paste` - (bool) disable pastiong from client
+- `disable_paste` - (bool) disable pasting from client
 #### *Device Redirection*
 - `console_audio` - (bool) support audio in console
 - `disable_audio` - (bool) disable audio

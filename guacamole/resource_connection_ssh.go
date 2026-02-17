@@ -6,10 +6,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bamhm182/go-guacamole/guacamole"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	guac "github.com/techBeck03/guacamole-api-client"
-	types "github.com/techBeck03/guacamole-api-client/types"
 )
 
 func guacamoleConnectionSSH() *schema.Resource {
@@ -50,52 +49,7 @@ func guacamoleConnectionSSH() *schema.Resource {
 				Description: "Guacamole connection attributes",
 				Optional:    true,
 				MaxItems:    1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"guacd_hostname": {
-							Type:        schema.TypeString,
-							Description: "Guacd proxy hostname",
-							Optional:    true,
-							Computed:    true,
-						},
-						"guacd_port": {
-							Type:        schema.TypeString,
-							Description: "Guacd proxy port",
-							Optional:    true,
-							Computed:    true,
-						},
-						"guacd_encryption": {
-							Type:        schema.TypeString,
-							Description: "Guacd proxy encryption type",
-							Optional:    true,
-							Computed:    true,
-						},
-						"failover_only": {
-							Type:        schema.TypeBool,
-							Description: "Use load balancing for failover only",
-							Optional:    true,
-							Computed:    true,
-						},
-						"weight": {
-							Type:        schema.TypeString,
-							Description: "Load balancing connection weight",
-							Optional:    true,
-							Computed:    true,
-						},
-						"max_connections": {
-							Type:        schema.TypeString,
-							Description: "Maximum concurrent total connections",
-							Optional:    true,
-							Computed:    true,
-						},
-						"max_connections_per_user": {
-							Type:        schema.TypeString,
-							Description: "Maximum concurrent connections per user",
-							Optional:    true,
-							Computed:    true,
-						},
-					},
-				},
+				Elem:        connectionAttributesSchemaElem(),
 			},
 			"parameters": {
 				Type:        schema.TypeList,
@@ -104,592 +58,252 @@ func guacamoleConnectionSSH() *schema.Resource {
 				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"hostname": {
-							Type:        schema.TypeString,
-							Description: "Hostname of target",
-							Required:    true,
-						},
-						"port": {
-							Type:        schema.TypeString,
-							Description: "Port for target connection",
-							Optional:    true,
-							Computed:    true,
-						},
-						"public_host_key": {
-							Type:        schema.TypeString,
-							Description: "Public host key",
-							Optional:    true,
-							Computed:    true,
-						},
-						"username": {
-							Type:        schema.TypeString,
-							Description: "Username for ssh connection",
-							Required:    true,
-						},
-						"password": {
-							Type:        schema.TypeString,
-							Description: "Password for ssh connection",
-							Optional:    true,
-							Computed:    true,
-						},
-						"private_key": {
-							Type:        schema.TypeString,
-							Description: "Private key for ssh connection",
-							Optional:    true,
-							Computed:    true,
-						},
-						"passphrase": {
-							Type:        schema.TypeString,
-							Description: "Private key passphrase",
-							Optional:    true,
-							Computed:    true,
-						},
-						"color_scheme": {
-							Type:        schema.TypeString,
-							Description: "Display color scheme",
-							Optional:    true,
-							Computed:    true,
-						},
-						"font_name": {
-							Type:        schema.TypeString,
-							Description: "Display font name",
-							Optional:    true,
-							Computed:    true,
-						},
-						"font_size": {
-							Type:        schema.TypeString,
-							Description: "Display font size",
-							Optional:    true,
-							Computed:    true,
-						},
-						"max_scrollback_size": {
-							Type:        schema.TypeString,
-							Description: "Display maximum scrollback",
-							Optional:    true,
-							Computed:    true,
-						},
-						"readonly": {
-							Type:        schema.TypeBool,
-							Description: "Display is readonly",
-							Optional:    true,
-							Computed:    true,
-						},
-						"disable_copy": {
-							Type:        schema.TypeBool,
-							Description: "Disable copying from terminal",
-							Optional:    true,
-							Computed:    true,
-						},
-						"disable_paste": {
-							Type:        schema.TypeBool,
-							Description: "Disable pasting from client",
-							Optional:    true,
-							Computed:    true,
-						},
-						"execute_command": {
-							Type:        schema.TypeString,
-							Description: "Execute command",
-							Optional:    true,
-							Computed:    true,
-						},
-						"locale": {
-							Type:        schema.TypeString,
-							Description: "Language/Locale",
-							Optional:    true,
-							Computed:    true,
-						},
-						"timezone": {
-							Type:        schema.TypeString,
-							Description: "Timezone",
-							Optional:    true,
-							Computed:    true,
-						},
-						"server_keepalive": {
-							Type:        schema.TypeString,
-							Description: "Server keepalive interval",
-							Optional:    true,
-							Computed:    true,
-						},
-						"backspace": {
-							Type:        schema.TypeString,
-							Description: "Backspace key sends",
-							Optional:    true,
-							Computed:    true,
-						},
-						"terminal_type": {
-							Type:        schema.TypeString,
-							Description: "Terminal type",
-							Optional:    true,
-							Computed:    true,
-						},
-						"typescript_path": {
-							Type:        schema.TypeString,
-							Description: "Typescript path",
-							Optional:    true,
-							Computed:    true,
-						},
-						"typescript_name": {
-							Type:        schema.TypeString,
-							Description: "Typescript name",
-							Optional:    true,
-							Computed:    true,
-						},
-						"typescript_auto_create_path": {
-							Type:        schema.TypeBool,
-							Description: "Automatically create typescript path",
-							Optional:    true,
-							Computed:    true,
-						},
-						"recording_path": {
-							Type:        schema.TypeString,
-							Description: "Screen recording path",
-							Optional:    true,
-							Computed:    true,
-						},
-						"recording_name": {
-							Type:        schema.TypeString,
-							Description: "Screen recording name",
-							Optional:    true,
-							Computed:    true,
-						},
-						"recording_exclude_output": {
-							Type:        schema.TypeBool,
-							Description: "Exclude graphics/streams",
-							Optional:    true,
-							Computed:    true,
-						},
-						"recording_exclude_mouse": {
-							Type:        schema.TypeBool,
-							Description: "Exclude mouse",
-							Optional:    true,
-							Computed:    true,
-						},
-						"recording_include_keys": {
-							Type:        schema.TypeBool,
-							Description: "Include key events",
-							Optional:    true,
-							Computed:    true,
-						},
-						"recording_auto_create_path": {
-							Type:        schema.TypeBool,
-							Description: "Auto create recording path",
-							Optional:    true,
-							Computed:    true,
-						},
-						"sftp_enable": {
-							Type:        schema.TypeBool,
-							Description: "Enable sftp",
-							Optional:    true,
-							Computed:    true,
-						},
-						"sftp_root_directory": {
-							Type:        schema.TypeString,
-							Description: "File browser root directory",
-							Optional:    true,
-							Computed:    true,
-						},
-						"sftp_disable_file_download": {
-							Type:        schema.TypeBool,
-							Description: "Disable file download",
-							Optional:    true,
-							Computed:    true,
-						},
-						"sftp_disable_file_upload": {
-							Type:        schema.TypeBool,
-							Description: "Disable file upload",
-							Optional:    true,
-							Computed:    true,
-						},
-						"wol_send_packet": {
-							Type:        schema.TypeBool,
-							Description: "Send WoL packet",
-							Optional:    true,
-							Computed:    true,
-						},
-						"wol_mac_address": {
-							Type:        schema.TypeString,
-							Description: "MAC address of the remote host",
-							Optional:    true,
-							Computed:    true,
-						},
-						"wol_broadcast_address": {
-							Type:        schema.TypeString,
-							Description: "Broadcast address for WoL packet",
-							Optional:    true,
-							Computed:    true,
-						},
-						"wol_boot_wait_time": {
-							Type:        schema.TypeString,
-							Description: "Host boot wait time",
-							Optional:    true,
-							Computed:    true,
-						},
+						"hostname":                    {Type: schema.TypeString, Required: true},
+						"port":                        {Type: schema.TypeString, Optional: true, Computed: true},
+						"public_host_key":             {Type: schema.TypeString, Optional: true, Computed: true},
+						"username":                    {Type: schema.TypeString, Required: true},
+						"password":                    {Type: schema.TypeString, Optional: true, Computed: true, Sensitive: true},
+						"private_key":                 {Type: schema.TypeString, Optional: true, Computed: true, Sensitive: true},
+						"passphrase":                  {Type: schema.TypeString, Optional: true, Computed: true, Sensitive: true},
+						"color_scheme":                {Type: schema.TypeString, Optional: true, Computed: true},
+						"font_name":                   {Type: schema.TypeString, Optional: true, Computed: true},
+						"font_size":                   {Type: schema.TypeString, Optional: true, Computed: true},
+						"max_scrollback_size":         {Type: schema.TypeString, Optional: true, Computed: true},
+						"readonly":                    {Type: schema.TypeBool, Optional: true, Computed: true},
+						"disable_copy":                {Type: schema.TypeBool, Optional: true, Computed: true},
+						"disable_paste":               {Type: schema.TypeBool, Optional: true, Computed: true},
+						"execute_command":             {Type: schema.TypeString, Optional: true, Computed: true},
+						"locale":                      {Type: schema.TypeString, Optional: true, Computed: true},
+						"timezone":                    {Type: schema.TypeString, Optional: true, Computed: true},
+						"server_keepalive":            {Type: schema.TypeString, Optional: true, Computed: true},
+						"backspace":                   {Type: schema.TypeString, Optional: true, Computed: true},
+						"terminal_type":               {Type: schema.TypeString, Optional: true, Computed: true},
+						"typescript_path":             {Type: schema.TypeString, Optional: true, Computed: true},
+						"typescript_name":             {Type: schema.TypeString, Optional: true, Computed: true},
+						"typescript_auto_create_path": {Type: schema.TypeBool, Optional: true, Computed: true},
+						"recording_path":              {Type: schema.TypeString, Optional: true, Computed: true},
+						"recording_name":              {Type: schema.TypeString, Optional: true, Computed: true},
+						"recording_exclude_output":    {Type: schema.TypeBool, Optional: true, Computed: true},
+						"recording_exclude_mouse":     {Type: schema.TypeBool, Optional: true, Computed: true},
+						"recording_include_keys":      {Type: schema.TypeBool, Optional: true, Computed: true},
+						"recording_auto_create_path":  {Type: schema.TypeBool, Optional: true, Computed: true},
+						"sftp_enable":                 {Type: schema.TypeBool, Optional: true, Computed: true},
+						"sftp_root_directory":         {Type: schema.TypeString, Optional: true, Computed: true},
+						"sftp_disable_file_download":  {Type: schema.TypeBool, Optional: true, Computed: true},
+						"sftp_disable_file_upload":    {Type: schema.TypeBool, Optional: true, Computed: true},
+						"wol_send_packet":             {Type: schema.TypeBool, Optional: true, Computed: true},
+						"wol_mac_address":             {Type: schema.TypeString, Optional: true, Computed: true},
+						"wol_broadcast_address":       {Type: schema.TypeString, Optional: true, Computed: true},
+						"wol_boot_wait_time":          {Type: schema.TypeString, Optional: true, Computed: true},
 					},
 				},
 			},
 		},
-                Importer: &schema.ResourceImporter{
-                        StateContext: schema.ImportStatePassthroughContext,
-                },
+		Importer: &schema.ResourceImporter{
+			StateContext: schema.ImportStatePassthroughContext,
+		},
 	}
-}
-
-func resourceConnectionSSHRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
-
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	identifier := d.Id()
-
-	connection, err := client.ReadConnection(identifier)
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	check := convertGuacConnectionSSHToResourceData(d, &connection)
-	if check.HasError() {
-		return check
-	}
-
-	d.SetId(identifier)
-
-	return diags
 }
 
 func resourceConnectionSSHCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
+	client := m.(*guacamole.Client)
 
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	validate := validateConnectionSSH(d, client)
-
-	if validate.HasError() {
-		return validate
-	}
-
-	connection, check := convertResourceDataToGuacConnectionSSH(d)
-
-	if check.HasError() {
+	if check := validateConnectionSSH(d); check.HasError() {
 		return check
 	}
 
-	err := client.CreateConnection(&connection)
-
+	conn := buildSSHConnection(d)
+	created, err := client.CreateConnection(ctx, conn)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	d.Set("identifier", connection.Identifier)
-	d.SetId(connection.Identifier)
-
-	if diags.HasError() {
-		return diags
-	}
+	d.Set("identifier", created.Identifier)
+	d.SetId(created.Identifier)
 
 	return resourceConnectionSSHRead(ctx, d, m)
 }
 
-func resourceConnectionSSHUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
+func resourceConnectionSSHRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	client := m.(*guacamole.Client)
 
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	if d.HasChanges("name", "identifier", "parent_identifier", "attributes", "parameters") {
-		validate := validateConnectionSSH(d, client)
-
-		if validate.HasError() {
-			return validate
+	id := d.Id()
+	conn, err := client.GetConnection(ctx, id)
+	if err != nil {
+		if guacamole.IsNotFound(err) {
+			d.SetId("")
+			return nil
 		}
-
-		connection, check := convertResourceDataToGuacConnectionSSH(d)
-
-		if check.HasError() {
-			return check
-		}
-
-		err := client.UpdateConnection(&connection)
-
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		d.SetId(connection.Identifier)
-
-	} else {
-		d.SetId(d.Id())
+		return diag.FromErr(fmt.Errorf("read SSH connection %s: %w", id, err))
 	}
 
-	if diags.HasError() {
-		return diags
+	params, err := client.GetConnectionParameters(ctx, id)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("read SSH connection parameters %s: %w", id, err))
+	}
+
+	d.Set("name", conn.Name)
+	d.Set("identifier", conn.Identifier)
+	d.Set("parent_identifier", conn.ParentIdentifier)
+	d.Set("protocol", conn.Protocol)
+	d.Set("active_connections", conn.ActiveConnections)
+	d.Set("attributes", readConnectionAttributes(conn.Attributes))
+	d.Set("parameters", []interface{}{
+		map[string]interface{}{
+			"hostname":                    params["hostname"],
+			"port":                        params["port"],
+			"public_host_key":             params["host-key"],
+			"username":                    params["username"],
+			"password":                    params["password"],
+			"private_key":                 params["private-key"],
+			"passphrase":                  params["passphrase"],
+			"color_scheme":                params["color-scheme"],
+			"font_name":                   params["font-name"],
+			"font_size":                   params["font-size"],
+			"max_scrollback_size":         params["scrollback"],
+			"readonly":                    stringToBool(params["read-only"]),
+			"disable_copy":                stringToBool(params["disable-copy"]),
+			"disable_paste":               stringToBool(params["disable-paste"]),
+			"execute_command":             params["command"],
+			"locale":                      params["locale"],
+			"timezone":                    params["timezone"],
+			"server_keepalive":            params["server-alive-interval"],
+			"backspace":                   params["backspace"],
+			"terminal_type":               params["terminal-type"],
+			"typescript_path":             params["typescript-path"],
+			"typescript_name":             params["typescript-name"],
+			"typescript_auto_create_path": stringToBool(params["create-typescript-path"]),
+			"recording_path":              params["recording-path"],
+			"recording_name":              params["recording-name"],
+			"recording_exclude_output":    stringToBool(params["recording-exclude-output"]),
+			"recording_exclude_mouse":     stringToBool(params["recording-exclude-mouse"]),
+			"recording_include_keys":      stringToBool(params["recording-include-keys"]),
+			"recording_auto_create_path":  stringToBool(params["create-recording-path"]),
+			"sftp_enable":                 stringToBool(params["enable-sftp"]),
+			"sftp_root_directory":         params["sftp-root-directory"],
+			"sftp_disable_file_download":  stringToBool(params["sftp-disable-file-download"]),
+			"sftp_disable_file_upload":    stringToBool(params["sftp-disable-file-upload"]),
+			"wol_send_packet":             stringToBool(params["wol-send-packet"]),
+			"wol_mac_address":             params["wol-mac-addr"],
+			"wol_broadcast_address":       params["wol-broadcast-addr"],
+			"wol_boot_wait_time":          params["wol-boot-wait-time"],
+		},
+	})
+
+	return nil
+}
+
+func resourceConnectionSSHUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	client := m.(*guacamole.Client)
+
+	if d.HasChanges("name", "parent_identifier", "attributes", "parameters") {
+		if check := validateConnectionSSH(d); check.HasError() {
+			return check
+		}
+		conn := buildSSHConnection(d)
+		if err := client.UpdateConnection(ctx, d.Id(), conn); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	return resourceConnectionSSHRead(ctx, d, m)
 }
 
 func resourceConnectionSSHDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
-
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	err := client.DeleteConnection(d.Id())
-
-	if err != nil {
-		diags = append(diags, diag.FromErr(err)...)
+	client := m.(*guacamole.Client)
+	if err := client.DeleteConnection(ctx, d.Id()); err != nil {
+		return diag.FromErr(err)
 	}
-
-	return diags
+	d.SetId("")
+	return nil
 }
 
-func convertGuacConnectionSSHToResourceData(d *schema.ResourceData, connection *types.GuacConnection) diag.Diagnostics {
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	d.Set("name", connection.Name)
-	d.Set("identifier", connection.Identifier)
-	d.Set("parent_identifier", connection.ParentIdentifier)
-	d.Set("protocol", connection.Protocol)
-	d.Set("active_connections", connection.ActiveConnections)
-
-	attributes := map[string]interface{}{
-		"guacd_hostname":           connection.Attributes.GuacdHostname,
-		"guacd_port":               connection.Attributes.GuacdPort,
-		"guacd_encryption":         connection.Attributes.GuacdEncryption,
-		"failover_only":            stringToBool(connection.Attributes.FailoverOnly),
-		"weight":                   connection.Attributes.Weight,
-		"max_connections":          connection.Attributes.MaxConnections,
-		"max_connections_per_user": connection.Attributes.MaxConnectionsPerUser,
+func buildSSHConnection(d *schema.ResourceData) guacamole.Connection {
+	conn := guacamole.Connection{
+		Name:             d.Get("name").(string),
+		Identifier:       d.Get("identifier").(string),
+		ParentIdentifier: d.Get("parent_identifier").(string),
+		Protocol:         "ssh",
 	}
-	var attributeList []map[string]interface{}
 
-	attributeList = append(attributeList, attributes)
+	conn.Attributes = buildConnectionAttributes(d.Get("attributes").([]interface{}))
 
-	d.Set("attributes", attributeList)
-
-	parameters := map[string]interface{}{
-		"hostname":                    connection.Parameters.Hostname,
-		"port":                        connection.Parameters.Port,
-		"public_host_key":             connection.Parameters.PublicHostKey,
-		"username":                    connection.Parameters.Username,
-		"password":                    connection.Parameters.Password,
-		"private_key":                 connection.Parameters.PrivateKey,
-		"passphrase":                  connection.Parameters.Passphrase,
-		"color_scheme":                connection.Parameters.ColorScheme,
-		"font_name":                   connection.Parameters.FontName,
-		"font_size":                   connection.Parameters.FontSize,
-		"max_scrollback_size":         connection.Parameters.Scrollback,
-		"readonly":                    stringToBool(connection.Parameters.ReadOnly),
-		"disable_copy":                stringToBool(connection.Parameters.DisableCopy),
-		"disable_paste":               stringToBool(connection.Parameters.DisablePaste),
-		"execute_command":             connection.Parameters.ExecuteCommand,
-		"locale":                      connection.Parameters.Locale,
-		"timezone":                    connection.Parameters.Timezone,
-		"server_keepalive":            connection.Parameters.ServerKeepaliveInterval,
-		"backspace":                   connection.Parameters.Backspace,
-		"terminal_type":               connection.Parameters.TerminalType,
-		"typescript_path":             connection.Parameters.TypescriptPath,
-		"typescript_name":             connection.Parameters.TypescriptName,
-		"typescript_auto_create_path": stringToBool(connection.Parameters.CreateTypescriptPath),
-		"recording_path":              connection.Parameters.RecordingPath,
-		"recording_name":              connection.Parameters.RecordingName,
-		"recording_exclude_output":    stringToBool(connection.Parameters.RecordingExcludeOutput),
-		"recording_exclude_mouse":     stringToBool(connection.Parameters.RecordingExcludeMouse),
-		"recording_include_keys":      stringToBool(connection.Parameters.RecordingIncludeKeys),
-		"recording_auto_create_path":  stringToBool(connection.Parameters.CreateRecordingPath),
-		"sftp_enable":                 stringToBool(connection.Parameters.EnableSFTP),
-		"sftp_root_directory":         connection.Parameters.SFTPRootDirectory,
-		"sftp_disable_file_download":  stringToBool(connection.Parameters.SFTPDisableFileDownload),
-		"sftp_disable_file_upload":    stringToBool(connection.Parameters.SFTPDisableFileUpload),
-		"wol_send_packet":             stringToBool(connection.Parameters.WOLSendPacket),
-		"wol_mac_address":             connection.Parameters.WOLMacAddress,
-		"wol_broadcast_address":       connection.Parameters.WOLBroadcastAddress,
-		"wol_boot_wait_time":          connection.Parameters.WOLBootWaitTime,
+	paramList := d.Get("parameters").([]interface{})
+	if len(paramList) > 0 {
+		p := paramList[0].(map[string]interface{})
+		conn.Parameters = map[string]string{
+			"hostname":                p["hostname"].(string),
+			"port":                    p["port"].(string),
+			"host-key":                p["public_host_key"].(string),
+			"username":                p["username"].(string),
+			"password":                p["password"].(string),
+			"private-key":             p["private_key"].(string),
+			"passphrase":              p["passphrase"].(string),
+			"color-scheme":            p["color_scheme"].(string),
+			"font-name":               p["font_name"].(string),
+			"font-size":               p["font_size"].(string),
+			"scrollback":              p["max_scrollback_size"].(string),
+			"read-only":               boolToString(p["readonly"].(bool)),
+			"disable-copy":            boolToString(p["disable_copy"].(bool)),
+			"disable-paste":           boolToString(p["disable_paste"].(bool)),
+			"command":                 p["execute_command"].(string),
+			"locale":                  p["locale"].(string),
+			"timezone":                p["timezone"].(string),
+			"server-alive-interval":   p["server_keepalive"].(string),
+			"backspace":               p["backspace"].(string),
+			"terminal-type":           p["terminal_type"].(string),
+			"typescript-path":         p["typescript_path"].(string),
+			"typescript-name":         p["typescript_name"].(string),
+			"create-typescript-path":  boolToString(p["typescript_auto_create_path"].(bool)),
+			"recording-path":          p["recording_path"].(string),
+			"recording-name":          p["recording_name"].(string),
+			"recording-exclude-output": boolToString(p["recording_exclude_output"].(bool)),
+			"recording-exclude-mouse": boolToString(p["recording_exclude_mouse"].(bool)),
+			"recording-include-keys":  boolToString(p["recording_include_keys"].(bool)),
+			"create-recording-path":   boolToString(p["recording_auto_create_path"].(bool)),
+			"enable-sftp":             boolToString(p["sftp_enable"].(bool)),
+			"sftp-root-directory":     p["sftp_root_directory"].(string),
+			"sftp-disable-file-download": boolToString(p["sftp_disable_file_download"].(bool)),
+			"sftp-disable-file-upload":   boolToString(p["sftp_disable_file_upload"].(bool)),
+			"wol-send-packet":         boolToString(p["wol_send_packet"].(bool)),
+			"wol-mac-addr":            p["wol_mac_address"].(string),
+			"wol-broadcast-addr":      p["wol_broadcast_address"].(string),
+			"wol-boot-wait-time":      p["wol_boot_wait_time"].(string),
+		}
 	}
-	var parameterList []map[string]interface{}
 
-	parameterList = append(parameterList, parameters)
-
-	d.Set("parameters", parameterList)
-
-	return diags
+	return conn
 }
 
-func validateConnectionSSH(d *schema.ResourceData, client *guac.Client) diag.Diagnostics {
+func validateConnectionSSH(d *schema.ResourceData) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	// validate attributes
-	attributeList := d.Get("attributes").([]interface{})
-
-	stringIntAttributes := []string{
-		"guacd_port",
-		"weight",
-		"max_connections",
-		"max_connections_per_user",
+	paramList := d.Get("parameters").([]interface{})
+	if len(paramList) == 0 {
+		return diags
 	}
+	p := paramList[0].(map[string]interface{})
 
-	var attributeInterface types.GuacConnectionAttributes
-	restrictedValueAttributes := map[string][]string{
-		"guacd_encryption": attributeInterface.ValidEncryptionTypes(),
+	intFields := map[string]string{
+		"port":                p["port"].(string),
+		"max_scrollback_size": p["max_scrollback_size"].(string),
+		"server_keepalive":    p["server_keepalive"].(string),
+		"wol_boot_wait_time":  p["wol_boot_wait_time"].(string),
 	}
-
-	if len(attributeList) > 0 {
-		attributes := attributeList[0].(map[string]interface{})
-		// validate string integer values
-		for _, v := range stringIntAttributes {
-			if attributes[v].(string) != "" {
-				_, err := strconv.Atoi(attributes[v].(string))
-				if err != nil {
-					diags = append(diags, diag.Diagnostic{
-						Severity: diag.Error,
-						Summary:  "Invalid entry",
-						Detail:   fmt.Sprintf("Expected string integer for attribute key: %s but was unable to convert: %s to integer", v, attributes[v].(string)),
-					})
-				}
-			}
-		}
-
-		// validate restricted value fields
-		for k, v := range restrictedValueAttributes {
-			if attributes[k].(string) != "" {
-				check := stringInSlice(v, []string{attributes[k].(string)})
-				if check.HasError() {
-					diags = append(diags, check...)
-				}
+	for name, val := range intFields {
+		if val != "" {
+			if _, err := strconv.Atoi(val); err != nil {
+				diags = append(diags, diag.Errorf("expected integer for parameter %s, got: %s", name, val)...)
 			}
 		}
 	}
 
-	// validate parameters
-	parameterList := d.Get("parameters").([]interface{})
-
-	stringIntparameters := []string{
-		"port",
-		"max_scrollback_size",
-		"server_keepalive",
-		"wol_boot_wait_time",
-	}
-
-	var parameterInterface types.GuacConnectionParameters
-	restrictedValueParameters := map[string][]string{
-		"color_scheme":  parameterInterface.ValidColorSchemes(),
-		"font_size":     parameterInterface.ValidFontSizes(),
-		"backspace":     parameterInterface.ValidBackspaceCodes(),
-		"terminal_type": parameterInterface.ValidTerminalTypes(),
-	}
-
-	if len(parameterList) > 0 {
-		parameters := parameterList[0].(map[string]interface{})
-		// validate string integer values
-		for _, v := range stringIntparameters {
-			if parameters[v].(string) != "" {
-				_, err := strconv.Atoi(parameters[v].(string))
-				if err != nil {
-					diags = append(diags, diag.Diagnostic{
-						Severity: diag.Error,
-						Summary:  "Invalid entry",
-						Detail:   fmt.Sprintf("Expected string integer for parameter key: %s but was unable to convert: %s to integer", v, parameters[v].(string)),
-					})
-				}
-			}
-		}
-
-		// validate restricted value fields
-		for k, v := range restrictedValueParameters {
-			if parameters[k].(string) != "" {
-				check := stringInSlice(v, []string{parameters[k].(string)})
-				if check.HasError() {
-					diags = append(diags, check...)
-				}
-			}
-		}
-
-		// validate timezone
-		timezone := parameters["timezone"].(string)
-		_, err := time.LoadLocation(timezone)
-		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Invalid timezone",
-				Detail:   fmt.Sprintf("Unable to process timezone string: %s", timezone),
-			})
+	tz := p["timezone"].(string)
+	if tz != "" {
+		if _, err := time.LoadLocation(tz); err != nil {
+			diags = append(diags, diag.Errorf("invalid timezone: %s", tz)...)
 		}
 	}
 
 	return diags
-}
-
-func convertResourceDataToGuacConnectionSSH(d *schema.ResourceData) (types.GuacConnection, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	var connection types.GuacConnection
-
-	connection.Name = d.Get("name").(string)
-	connection.Identifier = d.Get("identifier").(string)
-	connection.ParentIdentifier = d.Get("parent_identifier").(string)
-	connection.Protocol = "ssh"
-
-	attributeList := d.Get("attributes").([]interface{})
-
-	if len(attributeList) > 0 {
-		attributes := attributeList[0].(map[string]interface{})
-		connection.Attributes = types.GuacConnectionAttributes{
-			GuacdHostname:         attributes["guacd_hostname"].(string),
-			GuacdPort:             attributes["guacd_port"].(string),
-			GuacdEncryption:       attributes["guacd_encryption"].(string),
-			FailoverOnly:          boolToString(attributes["failover_only"].(bool)),
-			Weight:                attributes["weight"].(string),
-			MaxConnections:        attributes["max_connections"].(string),
-			MaxConnectionsPerUser: attributes["max_connections_per_user"].(string),
-		}
-	}
-
-	parameterList := d.Get("parameters").([]interface{})
-
-	if len(parameterList) > 0 {
-		attributes := parameterList[0].(map[string]interface{})
-		connection.Parameters = types.GuacConnectionParameters{
-			Hostname:                attributes["hostname"].(string),
-			Port:                    attributes["port"].(string),
-			PublicHostKey:           attributes["public_host_key"].(string),
-			Username:                attributes["username"].(string),
-			Password:                attributes["password"].(string),
-			PrivateKey:              attributes["private_key"].(string),
-			Passphrase:              attributes["passphrase"].(string),
-			ColorScheme:             attributes["color_scheme"].(string),
-			FontName:                attributes["font_name"].(string),
-			FontSize:                attributes["font_size"].(string),
-			Scrollback:              attributes["max_scrollback_size"].(string),
-			ReadOnly:                boolToString(attributes["readonly"].(bool)),
-			DisableCopy:             boolToString(attributes["disable_copy"].(bool)),
-			DisablePaste:            boolToString(attributes["disable_paste"].(bool)),
-			ExecuteCommand:          attributes["execute_command"].(string),
-			Locale:                  attributes["locale"].(string),
-			Timezone:                attributes["timezone"].(string),
-			ServerKeepaliveInterval: attributes["server_keepalive"].(string),
-			Backspace:               attributes["backspace"].(string),
-			TerminalType:            attributes["terminal_type"].(string),
-			TypescriptPath:          attributes["typescript_path"].(string),
-			TypescriptName:          attributes["typescript_name"].(string),
-			CreateTypescriptPath:    boolToString(attributes["typescript_auto_create_path"].(bool)),
-			RecordingPath:           attributes["recording_path"].(string),
-			RecordingName:           attributes["recording_name"].(string),
-			RecordingExcludeOutput:  boolToString(attributes["recording_exclude_output"].(bool)),
-			RecordingExcludeMouse:   boolToString(attributes["recording_exclude_mouse"].(bool)),
-			RecordingIncludeKeys:    boolToString(attributes["recording_include_keys"].(bool)),
-			CreateRecordingPath:     boolToString(attributes["recording_auto_create_path"].(bool)),
-			EnableSFTP:              boolToString(attributes["sftp_enable"].(bool)),
-			SFTPRootDirectory:       attributes["sftp_root_directory"].(string),
-			SFTPDisableFileDownload: boolToString(attributes["sftp_disable_file_download"].(bool)),
-			SFTPDisableFileUpload:   boolToString(attributes["sftp_disable_file_upload"].(bool)),
-			WOLSendPacket:           boolToString(attributes["wol_send_packet"].(bool)),
-			WOLMacAddress:           attributes["wol_mac_address"].(string),
-			WOLBroadcastAddress:     attributes["wol_broadcast_address"].(string),
-			WOLBootWaitTime:         attributes["wol_boot_wait_time"].(string),
-		}
-	}
-
-	return connection, diags
 }
