@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bamhm182/go-guacamole/guacamole"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	guac "github.com/techBeck03/guacamole-api-client"
 )
 
 func dataSourceUser() *schema.Resource {
@@ -30,153 +30,124 @@ func dataSourceUser() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"organizational_role": {
-							Type:        schema.TypeString,
-							Description: "Organizational role of user",
-							Computed:    true,
+							Type:     schema.TypeString,
+							Computed: true,
 						},
 						"full_name": {
-							Type:        schema.TypeString,
-							Description: "Full name of user",
-							Computed:    true,
+							Type:     schema.TypeString,
+							Computed: true,
 						},
 						"email": {
-							Type:        schema.TypeString,
-							Description: "Email of user",
-							Computed:    true,
+							Type:     schema.TypeString,
+							Computed: true,
 						},
 						"expired": {
-							Type:        schema.TypeBool,
-							Description: "Whether the user is expired",
-							Computed:    true,
+							Type:     schema.TypeBool,
+							Computed: true,
 						},
 						"timezone": {
-							Type:        schema.TypeString,
-							Description: "Timezone of user",
-							Computed:    true,
+							Type:     schema.TypeString,
+							Computed: true,
 						},
 						"access_window_start": {
-							Type:        schema.TypeString,
-							Description: "Access window start time for user",
-							Computed:    true,
+							Type:     schema.TypeString,
+							Computed: true,
 						},
 						"access_window_end": {
-							Type:        schema.TypeString,
-							Description: "Access window end time for user",
-							Computed:    true,
+							Type:     schema.TypeString,
+							Computed: true,
 						},
 						"disabled": {
-							Type:        schema.TypeBool,
-							Description: "Whether account is disabled",
-							Computed:    true,
+							Type:     schema.TypeBool,
+							Computed: true,
 						},
 						"valid_from": {
-							Type:        schema.TypeString,
-							Description: "Start date for when user is valid",
-							Computed:    true,
+							Type:     schema.TypeString,
+							Computed: true,
 						},
 						"valid_until": {
-							Type:        schema.TypeString,
-							Description: "End date for when user is valid",
-							Computed:    true,
+							Type:     schema.TypeString,
+							Computed: true,
 						},
 					},
 				},
 			},
 			"group_membership": {
-				Type:        schema.TypeSet,
-				Description: "Groups this user is a member of",
-				Computed:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+				Type:     schema.TypeSet,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
 			"system_permissions": {
-				Type:        schema.TypeSet,
-				Description: "System permissions assigned to user",
-				Computed:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+				Type:     schema.TypeSet,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
 			"connections": {
-				Type:        schema.TypeSet,
-				Description: "Connections identifiers a user has permission to read",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+				Type:     schema.TypeSet,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
 			"connection_groups": {
-				Type:        schema.TypeSet,
-				Description: "Connection Group identifiers a user has permission to read",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+				Type:     schema.TypeSet,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
 		},
 	}
 }
 
 func dataSourceUserRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
-
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
+	client := m.(*guacamole.Client)
 
 	username := d.Get("username").(string)
 
-	user, err := client.ReadUser(username)
-
+	user, err := client.GetUser(ctx, username)
 	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error reading guacamole user: %s", username),
-			Detail:   err.Error(),
-		})
-
-		return diags
+		return diag.FromErr(fmt.Errorf("read user %s: %w", username, err))
 	}
 
-	groups, err := client.GetUserGroupMembership(username)
+	d.Set("last_active", fmt.Sprintf("%d", user.LastActive))
+	d.Set("attributes", []interface{}{
+		map[string]interface{}{
+			"organizational_role": user.Attributes["guac-organizational-role"],
+			"full_name":           user.Attributes["guac-full-name"],
+			"email":               user.Attributes["guac-email-address"],
+			"expired":             stringToBool(user.Attributes["expired"]),
+			"timezone":            user.Attributes["timezone"],
+			"access_window_start": user.Attributes["access-window-start"],
+			"access_window_end":   user.Attributes["access-window-end"],
+			"disabled":            stringToBool(user.Attributes["disabled"]),
+			"valid_from":          user.Attributes["valid-from"],
+			"valid_until":         user.Attributes["valid-until"],
+		},
+	})
 
+	groups, err := client.GetUserGroups(ctx, username)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.FromErr(fmt.Errorf("get user groups %s: %w", username, err))
 	}
-
-	err = convertGuacUserToResourceData(d, &user)
-
 	d.Set("group_membership", groups)
 
+	permissions, err := client.GetUserPermissions(ctx, username)
 	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	permissions, err := client.GetUserPermissions(username)
-
-	if err != nil {
-		return diag.FromErr(err)
+		return diag.FromErr(fmt.Errorf("get user permissions %s: %w", username, err))
 	}
 
 	d.Set("system_permissions", permissions.SystemPermissions)
 
-	// Get connections
 	var connections []string
-	for connection := range permissions.ConnectionPermissions {
-		connections = append(connections, connection)
+	for id := range permissions.ConnectionPermissions {
+		connections = append(connections, id)
 	}
-
 	d.Set("connections", connections)
 
-	// Get connection groups
 	var connectionGroups []string
-	for group := range permissions.ConnectionGroupPermissions {
-		connectionGroups = append(connectionGroups, group)
+	for id := range permissions.ConnectionGroupPermissions {
+		connectionGroups = append(connectionGroups, id)
 	}
-
 	d.Set("connection_groups", connectionGroups)
 
 	d.SetId(username)
 
-	return diags
+	return nil
 }

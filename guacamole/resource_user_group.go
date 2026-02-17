@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bamhm182/go-guacamole/guacamole"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	guac "github.com/techBeck03/guacamole-api-client"
-	types "github.com/techBeck03/guacamole-api-client/types"
 )
 
 func guacamoleUserGroup() *schema.Resource {
@@ -42,372 +41,231 @@ func guacamoleUserGroup() *schema.Resource {
 			},
 			"group_membership": {
 				Type:        schema.TypeSet,
-				Description: "Groups this user group is a member of",
+				Description: "Groups this user group is a member of (parent groups)",
 				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
 			"system_permissions": {
 				Type:        schema.TypeSet,
 				Description: "System permissions assigned to user group",
 				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
 			"connections": {
 				Type:        schema.TypeSet,
-				Description: "Connections identifiers a user has permission to read",
+				Description: "Connection identifiers this group has permission to read",
 				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
 			"connection_groups": {
 				Type:        schema.TypeSet,
-				Description: "Connection Group identifiers a user has permission to read",
+				Description: "Connection group identifiers this group has permission to read",
 				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
 		},
-                Importer: &schema.ResourceImporter{
-                        StateContext: schema.ImportStatePassthroughContext,
-                },
+		Importer: &schema.ResourceImporter{
+			StateContext: schema.ImportStatePassthroughContext,
+		},
 	}
 }
 
 func resourceUserGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
+	client := m.(*guacamole.Client)
 
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
+	group := convertResourceDataToGuacUserGroup(d)
 
-	group, err := convertResourceDataToGuacUserGroup(d)
-
+	created, err := client.CreateUserGroup(ctx, group)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	err = client.CreateUserGroup(&group)
+	d.SetId(created.Identifier)
 
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	groupMembershipSet, ok := d.GetOk("group_membership")
-	var groupMembership []string
-	for _, group := range groupMembershipSet.(*schema.Set).List() {
-		groupMembership = append(groupMembership, group.(string))
-	}
-	if ok && len(groupMembership) > 0 {
-		check := validateGroups(client, groupMembership)
-		if check.HasError() {
-			diags = append(diags, check...)
-			goto Cleanup
+	// Parent group membership
+	groupMembership := setToStringSlice(d.Get("group_membership").(*schema.Set))
+	if len(groupMembership) > 0 {
+		var ops []guacamole.PatchOperation
+		for _, g := range groupMembership {
+			ops = append(ops, guacamole.AddGroupMembership(g))
 		}
-		var permissionItems []types.GuacPermissionItem
-		for _, group := range groupMembership {
-			permissionItems = append(permissionItems, client.NewAddGroupMemberPermission(group))
-		}
-		err = client.SetUserGroupMemberGroups(group.Identifier, &permissionItems)
-		if err != nil {
-			diags = append(diags, diag.FromErr(err)...)
-			goto Cleanup
+		if err := client.UpdateUserGroupParentGroups(ctx, created.Identifier, ops); err != nil {
+			_ = client.DeleteUserGroup(ctx, created.Identifier)
+			return diag.FromErr(fmt.Errorf("set group membership: %w", err))
 		}
 	}
 
-	if !diags.HasError() {
-		systemPermissionsSet, ok := d.GetOk("system_permissions")
-		var systemPermissions []string
-		for _, group := range systemPermissionsSet.(*schema.Set).List() {
-			systemPermissions = append(systemPermissions, group.(string))
+	// Permissions
+	var permOps []guacamole.PatchOperation
+
+	sysPerms := setToStringSlice(d.Get("system_permissions").(*schema.Set))
+	if len(sysPerms) > 0 {
+		if check := stringInSlice(validSystemPermissions(), sysPerms); check.HasError() {
+			_ = client.DeleteUserGroup(ctx, created.Identifier)
+			return check
 		}
-		if ok && len(systemPermissions) > 0 {
-			check := stringInSlice(types.SystemPermissions{}.ValidChoices(), systemPermissions)
-			if check.HasError() {
-				diags = append(diags, check...)
-				goto Cleanup
-			}
-			var permissionItems []types.GuacPermissionItem
-			for _, permission := range systemPermissions {
-				permissionItems = append(permissionItems, client.NewAddSystemPermission(permission))
-			}
-			err = client.SetUserGroupPermissions(group.Identifier, &permissionItems)
-			if err != nil {
-				diags = append(diags, diag.FromErr(err)...)
-				goto Cleanup
-			}
+		for _, p := range sysPerms {
+			permOps = append(permOps, guacamole.AddSystemPermission(p))
+		}
+	}
+	for _, conn := range setToStringSlice(d.Get("connections").(*schema.Set)) {
+		permOps = append(permOps, guacamole.AddConnectionPermission(conn, guacamole.PermissionRead))
+	}
+	for _, cg := range setToStringSlice(d.Get("connection_groups").(*schema.Set)) {
+		permOps = append(permOps, guacamole.AddConnectionGroupPermission(cg, guacamole.PermissionRead))
+	}
+
+	if len(permOps) > 0 {
+		if err := client.UpdateUserGroupPermissions(ctx, created.Identifier, permOps); err != nil {
+			_ = client.DeleteUserGroup(ctx, created.Identifier)
+			return diag.FromErr(fmt.Errorf("set permissions: %w", err))
 		}
 	}
 
-	if !diags.HasError() {
-		var connectionPermissionItems []types.GuacPermissionItem
-		connectionSet, ok := d.GetOk("connections")
-		var connections []string
-		for _, connection := range connectionSet.(*schema.Set).List() {
-			connections = append(connections, connection.(string))
-		}
-		if ok && len(connections) > 0 {
-			for _, connection := range connections {
-				connectionPermissionItems = append(connectionPermissionItems, client.NewAddConnectionPermission(connection))
-			}
-		}
-
-		connectionGroupSet, ok := d.GetOk("connection_groups")
-		var connectionGroups []string
-		for _, connectionGroup := range connectionGroupSet.(*schema.Set).List() {
-			connectionGroups = append(connectionGroups, connectionGroup.(string))
-		}
-		if ok && len(connectionGroups) > 0 {
-			for _, connectionGroup := range connectionGroups {
-				connectionPermissionItems = append(connectionPermissionItems, client.NewAddConnectionGroupPermission(connectionGroup))
-			}
-		}
-
-		if len(connectionPermissionItems) > 0 {
-			err = client.SetUserGroupPermissions(group.Identifier, &connectionPermissionItems)
-			if err != nil {
-				diags = append(diags, diag.FromErr(err)...)
-				goto Cleanup
-			}
-		}
-	}
-
-	d.SetId(group.Identifier)
-	resourceUserGroupRead(ctx, d, m)
-
-	return diags
-Cleanup:
-	d.SetId(group.Identifier)
-	check := resourceUserGroupDelete(ctx, d, m)
-	if check.HasError() {
-		diags = append(diags, check...)
-	}
-	return diags
+	return resourceUserGroupRead(ctx, d, m)
 }
 
 func resourceUserGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
+	client := m.(*guacamole.Client)
 
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	identifier := d.Id()
-	group, err := client.ReadUserGroup(identifier)
-
+	id := d.Id()
+	group, err := client.GetUserGroup(ctx, id)
 	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error reading guacamole user: %s", identifier),
-			Detail:   err.Error(),
-		})
-
-		return diags
+		if guacamole.IsNotFound(err) {
+			d.SetId("")
+			return nil
+		}
+		return diag.FromErr(fmt.Errorf("read user group %s: %w", id, err))
 	}
 
-	err = convertGuacUserGroupToResourceData(d, &group)
+	d.Set("identifier", group.Identifier)
 
-	if err != nil {
-		return diag.FromErr(err)
+	attributes := map[string]interface{}{
+		"disabled": stringToBool(group.Attributes["disabled"]),
 	}
+	d.Set("attributes", []interface{}{attributes})
 
-	// Read group membership
-	groups, err := client.GetUserGroupMemberGroups(identifier)
-
+	parentGroups, err := client.GetUserGroupParentGroups(ctx, id)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.FromErr(fmt.Errorf("get parent groups: %w", err))
 	}
+	d.Set("group_membership", parentGroups)
 
-	d.Set("group_membership", groups)
-
-	// Read system permissions
-	permissions, err := client.GetUserGroupPermissions(identifier)
-
+	permissions, err := client.GetUserGroupPermissions(ctx, id)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.FromErr(fmt.Errorf("get user group permissions: %w", err))
 	}
 
 	d.Set("system_permissions", permissions.SystemPermissions)
 
-	// Get connections
 	var connections []string
-	for connection := range permissions.ConnectionPermissions {
-		connections = append(connections, connection)
+	for id := range permissions.ConnectionPermissions {
+		connections = append(connections, id)
 	}
-
 	d.Set("connections", connections)
 
-	// Get connection groups
 	var connectionGroups []string
-	for group := range permissions.ConnectionGroupPermissions {
-		connectionGroups = append(connectionGroups, group)
+	for id := range permissions.ConnectionGroupPermissions {
+		connectionGroups = append(connectionGroups, id)
 	}
-
 	d.Set("connection_groups", connectionGroups)
 
-	return diags
+	return nil
 }
 
 func resourceUserGroupUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
+	client := m.(*guacamole.Client)
 
-	if d.HasChanges("username", "attributes") {
-		group, err := convertResourceDataToGuacUserGroup(d)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-		err = client.UpdateUserGroup(&group)
-
-		if err != nil {
+	if d.HasChanges("attributes") {
+		group := convertResourceDataToGuacUserGroup(d)
+		if err := client.UpdateUserGroup(ctx, d.Id(), group); err != nil {
 			return diag.FromErr(err)
 		}
 	}
 
 	if d.HasChange("group_membership") {
-		var permissionItems []types.GuacPermissionItem
-		var oldGroups, newGroups []string
 		old, new := d.GetChange("group_membership")
-		for _, group := range old.(*schema.Set).List() {
-			oldGroups = append(oldGroups, group.(string))
-		}
+		oldGroups := setToStringSlice(old.(*schema.Set))
+		newGroups := setToStringSlice(new.(*schema.Set))
 
-		for _, group := range new.(*schema.Set).List() {
-			newGroups = append(newGroups, group.(string))
+		var ops []guacamole.PatchOperation
+		for _, g := range sliceDiff(oldGroups, newGroups, false) {
+			ops = append(ops, guacamole.RemoveGroupMembership(g))
 		}
-
-		removeGroups := sliceDiff(oldGroups, newGroups, false)
-		if len(removeGroups) > 0 {
-			for _, group := range removeGroups {
-				permissionItems = append(permissionItems, client.NewRemoveGroupMemberPermission(group))
-			}
-		}
-
 		addGroups := sliceDiff(newGroups, oldGroups, false)
 		if len(addGroups) > 0 {
-			check := validateGroups(client, addGroups)
-			if check.HasError() {
+			if check := checkForDuplicates(addGroups); check.HasError() {
 				return check
 			}
-			check = checkForDuplicates(addGroups)
-			if check.HasError() {
-				return check
-			}
-			for _, group := range addGroups {
-				permissionItems = append(permissionItems, client.NewAddGroupMemberPermission(group))
+			for _, g := range addGroups {
+				ops = append(ops, guacamole.AddGroupMembership(g))
 			}
 		}
-		if len(permissionItems) > 0 {
-			err := client.SetUserGroupMemberGroups(d.Id(), &permissionItems)
-			if err != nil {
+		if len(ops) > 0 {
+			if err := client.UpdateUserGroupParentGroups(ctx, d.Id(), ops); err != nil {
 				return diag.FromErr(err)
 			}
 		}
 	}
 
 	if d.HasChange("system_permissions") {
-		var permissionItems []types.GuacPermissionItem
 		old, new := d.GetChange("system_permissions")
-		var oldPermissions, newPermissions []string
+		oldPerms := setToStringSlice(old.(*schema.Set))
+		newPerms := setToStringSlice(new.(*schema.Set))
 
-		for _, permission := range old.(*schema.Set).List() {
-			oldPermissions = append(oldPermissions, permission.(string))
+		var ops []guacamole.PatchOperation
+		for _, p := range sliceDiff(oldPerms, newPerms, false) {
+			ops = append(ops, guacamole.RemoveSystemPermission(p))
 		}
-
-		for _, permission := range new.(*schema.Set).List() {
-			newPermissions = append(newPermissions, permission.(string))
-		}
-
-		removePermissions := sliceDiff(oldPermissions, newPermissions, false)
-		if len(removePermissions) > 0 {
-			for _, permission := range removePermissions {
-				permissionItems = append(permissionItems, client.NewRemoveSystemPermission(permission))
-			}
-		}
-
-		addPermissions := sliceDiff(newPermissions, oldPermissions, false)
-		if len(addPermissions) > 0 {
-			check := stringInSlice(types.SystemPermissions{}.ValidChoices(), addPermissions)
-			if check.HasError() {
+		add := sliceDiff(newPerms, oldPerms, false)
+		if len(add) > 0 {
+			if check := stringInSlice(validSystemPermissions(), add); check.HasError() {
 				return check
 			}
-			for _, permission := range addPermissions {
-				permissionItems = append(permissionItems, client.NewAddSystemPermission(permission))
+			for _, p := range add {
+				ops = append(ops, guacamole.AddSystemPermission(p))
 			}
 		}
-		if len(permissionItems) > 0 {
-			err := client.SetUserGroupPermissions(d.Id(), &permissionItems)
-			if err != nil {
+		if len(ops) > 0 {
+			if err := client.UpdateUserGroupPermissions(ctx, d.Id(), ops); err != nil {
 				return diag.FromErr(err)
 			}
 		}
 	}
 
 	if d.HasChange("connections") {
-		var permissionItems []types.GuacPermissionItem
 		old, new := d.GetChange("connections")
-		var oldConnections, newConnnections []string
+		oldConns := setToStringSlice(old.(*schema.Set))
+		newConns := setToStringSlice(new.(*schema.Set))
 
-		for _, connection := range old.(*schema.Set).List() {
-			oldConnections = append(oldConnections, connection.(string))
+		var ops []guacamole.PatchOperation
+		for _, c := range sliceDiff(oldConns, newConns, false) {
+			ops = append(ops, guacamole.RemoveConnectionPermission(c, guacamole.PermissionRead))
 		}
-
-		for _, connection := range new.(*schema.Set).List() {
-			newConnnections = append(newConnnections, connection.(string))
+		for _, c := range sliceDiff(newConns, oldConns, false) {
+			ops = append(ops, guacamole.AddConnectionPermission(c, guacamole.PermissionRead))
 		}
-
-		removeConnections := sliceDiff(oldConnections, newConnnections, false)
-		if len(removeConnections) > 0 {
-			for _, connection := range removeConnections {
-				permissionItems = append(permissionItems, client.NewRemoveConnectionPermission(connection))
-			}
-		}
-
-		addConnections := sliceDiff(newConnnections, oldConnections, false)
-		if len(addConnections) > 0 {
-			for _, connection := range addConnections {
-				permissionItems = append(permissionItems, client.NewAddConnectionPermission(connection))
-			}
-		}
-		if len(permissionItems) > 0 {
-			err := client.SetUserGroupPermissions(d.Id(), &permissionItems)
-			if err != nil {
+		if len(ops) > 0 {
+			if err := client.UpdateUserGroupPermissions(ctx, d.Id(), ops); err != nil {
 				return diag.FromErr(err)
 			}
 		}
 	}
 
 	if d.HasChange("connection_groups") {
-		var permissionItems []types.GuacPermissionItem
 		old, new := d.GetChange("connection_groups")
-		var oldConnectionGroups, newConnectionGroups []string
+		oldCGs := setToStringSlice(old.(*schema.Set))
+		newCGs := setToStringSlice(new.(*schema.Set))
 
-		for _, connection := range old.(*schema.Set).List() {
-			oldConnectionGroups = append(oldConnectionGroups, connection.(string))
+		var ops []guacamole.PatchOperation
+		for _, cg := range sliceDiff(oldCGs, newCGs, false) {
+			ops = append(ops, guacamole.RemoveConnectionGroupPermission(cg, guacamole.PermissionRead))
 		}
-
-		for _, connection := range new.(*schema.Set).List() {
-			newConnectionGroups = append(newConnectionGroups, connection.(string))
+		for _, cg := range sliceDiff(newCGs, oldCGs, false) {
+			ops = append(ops, guacamole.AddConnectionGroupPermission(cg, guacamole.PermissionRead))
 		}
-
-		removeConnectionGroups := sliceDiff(oldConnectionGroups, newConnectionGroups, false)
-		if len(removeConnectionGroups) > 0 {
-			for _, connection := range removeConnectionGroups {
-				permissionItems = append(permissionItems, client.NewRemoveConnectionGroupPermission(connection))
-			}
-		}
-
-		addConnectionGroups := sliceDiff(newConnectionGroups, oldConnectionGroups, false)
-		if len(addConnectionGroups) > 0 {
-			for _, connection := range addConnectionGroups {
-				permissionItems = append(permissionItems, client.NewAddConnectionGroupPermission(connection))
-			}
-		}
-		if len(permissionItems) > 0 {
-			err := client.SetUserGroupPermissions(d.Id(), &permissionItems)
-			if err != nil {
+		if len(ops) > 0 {
+			if err := client.UpdateUserGroupPermissions(ctx, d.Id(), ops); err != nil {
 				return diag.FromErr(err)
 			}
 		}
@@ -417,52 +275,26 @@ func resourceUserGroupUpdate(ctx context.Context, d *schema.ResourceData, m inte
 }
 
 func resourceUserGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*guac.Client)
-
-	// Warning or errors can be collected in a slice type
-	var diags diag.Diagnostics
-
-	identifier := d.Id()
-
-	err := client.DeleteUserGroup(identifier)
-	if err != nil {
+	client := m.(*guacamole.Client)
+	if err := client.DeleteUserGroup(ctx, d.Id()); err != nil {
 		return diag.FromErr(err)
 	}
-
 	d.SetId("")
-
-	return diags
+	return nil
 }
 
-func convertResourceDataToGuacUserGroup(d *schema.ResourceData) (types.GuacUserGroup, error) {
-	var group types.GuacUserGroup
+func convertResourceDataToGuacUserGroup(d *schema.ResourceData) guacamole.UserGroup {
+	group := guacamole.UserGroup{
+		Identifier: d.Get("identifier").(string),
+	}
 
-	group.Identifier = d.Get("identifier").(string)
-
-	attributeList := d.Get("attributes").([]interface{})
-
-	if len(attributeList) > 0 {
-		attributes := attributeList[0].(map[string]interface{})
-		group.Attributes = types.GuacUserGroupAttributes{
-			Disabled: boolToString(attributes["disabled"].(bool)),
+	attrList := d.Get("attributes").([]interface{})
+	if len(attrList) > 0 {
+		attrs := attrList[0].(map[string]interface{})
+		group.Attributes = guacamole.NullableStringMap{
+			"disabled": boolToString(attrs["disabled"].(bool)),
 		}
 	}
 
-	return group, nil
-}
-
-func convertGuacUserGroupToResourceData(d *schema.ResourceData, group *types.GuacUserGroup) error {
-	d.Set("identifier", group.Identifier)
-
-	attributes := map[string]interface{}{
-		"disabled": stringToBool(group.Attributes.Disabled),
-	}
-
-	var attributeList []map[string]interface{}
-
-	attributeList = append(attributeList, attributes)
-
-	d.Set("attributes", attributeList)
-
-	return nil
+	return group
 }

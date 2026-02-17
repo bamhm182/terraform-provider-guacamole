@@ -64,8 +64,9 @@ resource "guacamole_connection_kubernetes" "kubernetes" {
 #### *Network*
 - `hostname` - (string) hostname
 - `port` - (string) port
-- `use_ssl` - (string) Use SSL
-- `ignore_cert` - (string) Ignore cert errors
+- `use_ssl` - (bool) use SSL
+- `ignore_cert` - (bool) ignore cert errors
+- `ca_cert` - (string) CA certificate
 #### Container
 - `namespace` - (string)
 - `pod` - (string)

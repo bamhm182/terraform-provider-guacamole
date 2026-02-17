@@ -1,13 +1,13 @@
 package guacamole
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
+	"github.com/bamhm182/go-guacamole/guacamole"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	guac "github.com/techBeck03/guacamole-api-client"
-	types "github.com/techBeck03/guacamole-api-client/types"
 )
 
 func TestAccGuacamoleUserBasic(t *testing.T) {
@@ -25,7 +25,7 @@ func TestAccGuacamoleUserBasic(t *testing.T) {
 			"valid_from":          "2021-01-01",
 			"valid_until":         "2022-01-01",
 		},
-		"system_permissions": types.SystemPermissions{}.ValidChoices(),
+		"system_permissions": validSystemPermissions(),
 		"group_membership":   []string{testProviderUserGroup["identifier"].(string)},
 	}
 
@@ -51,7 +51,7 @@ func TestAccGuacamoleUserBasic(t *testing.T) {
 					resource.TestCheckResourceAttr("guacamole_user.new", "attributes.0.disabled", boolToString(testProviderUser["attributes"].(map[string]interface{})["disabled"].(bool))),
 					resource.TestCheckResourceAttr("guacamole_user.new", "attributes.0.valid_from", testProviderUser["attributes"].(map[string]interface{})["valid_from"].(string)),
 					resource.TestCheckResourceAttr("guacamole_user.new", "attributes.0.valid_until", testProviderUser["attributes"].(map[string]interface{})["valid_until"].(string)),
-					testAccCheckTestSliceVals("guacamole_user.new", "system_permissions", types.SystemPermissions{}.ValidChoices()),
+					testAccCheckTestSliceVals("guacamole_user.new", "system_permissions", validSystemPermissions()),
 					testAccCheckTestSliceVals("guacamole_user.new", "group_membership", []string{testProviderUserGroup["identifier"].(string)}),
 				),
 			},
@@ -60,7 +60,7 @@ func TestAccGuacamoleUserBasic(t *testing.T) {
 }
 
 func testAccCheckGuacamoleUserDestroy(s *terraform.State) error {
-	c := testAccProvider.Meta().(*guac.Client)
+	c := testAccProvider.Meta().(*guacamole.Client)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "guacamole_user" {
@@ -69,9 +69,12 @@ func testAccCheckGuacamoleUserDestroy(s *terraform.State) error {
 
 		username := rs.Primary.ID
 
-		user, err := c.ReadUser(username)
+		user, err := c.GetUser(context.Background(), username)
 		if err != nil {
-			return nil
+			if guacamole.IsNotFound(err) {
+				return nil
+			}
+			return err
 		}
 		if user.Username != "" {
 			return fmt.Errorf("Username %s still exists in guacamole database", username)

@@ -2,12 +2,12 @@
 page_title: "User Group Resource - terraform-provider-guacamole"
 subcategory: ""
 description: |-
-  The user group resource allows you to  a guacamole user group by identifier
+  The user group resource allows you to configure a guacamole user group
 ---
 
 # Resource `guacamole_user_group`
 
-The user group data source allows you to configure a guacamole user group
+The user group resource allows you to configure a guacamole user group
 
 ## Example Usage
 

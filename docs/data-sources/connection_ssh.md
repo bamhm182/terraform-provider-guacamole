@@ -2,24 +2,18 @@
 page_title: "Connection SSH Data Source - terraform-provider-guacamole"
 subcategory: ""
 description: |-
-  The connection_ssh data source allows you to retrieve a guacamole ssh connection details by identifier or path
+  The connection_ssh data source allows you to retrieve a guacamole ssh connection details by identifier
 ---
 
 # Data Source `guacamole_connection_ssh`
 
-The connection_ssh data source allows you to retrieve a guacamole ssh connection details by identifier or path
+The connection_ssh data source allows you to retrieve a guacamole ssh connection details by identifier
 
 ## Example Usage
 
 ```terraform
 data "guacamole_connection_ssh" "ssh" {
   identifier = 1234
-}
-```
-
-```terraform
-data "guacamole_connection_ssh" "ssh" {
-  path = "parentGroupName/connectionName"
 }
 ```
 
@@ -30,7 +24,6 @@ The following attributes are exported.
 ### Base
 
 - `name` -  (string) Name of the connection
-- `path` -  (string) Used in place of identifier to find a path by "ParentName/TargetName" when the identifier is unknown
 - `identifier` -  (string) Numeric identifier of the ssh connection
 - `parent_identifier` -  (string) Numeric identifier of the parent connection
 - `protocol` -  (string) protocol of the connection (`ssh`).
@@ -57,6 +50,7 @@ The following attributes are exported.
 - `public_host_key` - (string) public host key
 #### *Authentication*
 - `username` - (string) username
+- `password` - (string) password
 - `private_key` - (string) private key
 - `passphrase` - (string) passphrase (if required by key)
 #### *Display*
@@ -85,8 +79,8 @@ The following attributes are exported.
 - `readonly` - (bool) display is read-only
 #### *Clipboard*
 - `disable_copy` - (bool) disable copying from the terminal
-- `disable_paste` - (bool) disable pastiong from client
-#### *Session / Envrionment*
+- `disable_paste` - (bool) disable pasting from client
+#### *Session / Environment*
 - `execute_command` - (string) execute command
 - `locale` - (string) language/locale ($LANG)
 - `timezone` - (string) timezone string. Example `America/Chicago`
@@ -101,7 +95,7 @@ The following attributes are exported.
   - `vt100`
   - `vt220`
   - `xterm`
-  - `xterm-25color`
+  - `xterm-256color`
 #### *Typescript (Text Session Recording)*
 - `typescript_path` - (string) typescript path
 - `typescript_name` - (string) typescript name

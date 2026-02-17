@@ -142,6 +142,8 @@ func TestAccGuacamoleConnectionRDPBasic(t *testing.T) {
 					resource.TestCheckResourceAttr("guacamole_connection_rdp.new", "parameters.0.readonly", boolToString(testProviderConnectionRDP["parameters"].(map[string]interface{})["readonly"].(bool))),
 					resource.TestCheckResourceAttr("guacamole_connection_rdp.new", "parameters.0.disable_copy", boolToString(testProviderConnectionRDP["parameters"].(map[string]interface{})["disable_copy"].(bool))),
 					resource.TestCheckResourceAttr("guacamole_connection_rdp.new", "parameters.0.disable_paste", boolToString(testProviderConnectionRDP["parameters"].(map[string]interface{})["disable_paste"].(bool))),
+					resource.TestCheckResourceAttr("guacamole_connection_rdp.new", "parameters.0.console_audio", boolToString(testProviderConnectionRDP["parameters"].(map[string]interface{})["console_audio"].(bool))),
+					resource.TestCheckResourceAttr("guacamole_connection_rdp.new", "parameters.0.disable_audio", boolToString(testProviderConnectionRDP["parameters"].(map[string]interface{})["disable_audio"].(bool))),
 					resource.TestCheckResourceAttr("guacamole_connection_rdp.new", "parameters.0.enable_audio_input", boolToString(testProviderConnectionRDP["parameters"].(map[string]interface{})["enable_audio_input"].(bool))),
 					resource.TestCheckResourceAttr("guacamole_connection_rdp.new", "parameters.0.enable_printing", boolToString(testProviderConnectionRDP["parameters"].(map[string]interface{})["enable_printing"].(bool))),
 					resource.TestCheckResourceAttr("guacamole_connection_rdp.new", "parameters.0.printer_name", testProviderConnectionRDP["parameters"].(map[string]interface{})["printer_name"].(string)),
