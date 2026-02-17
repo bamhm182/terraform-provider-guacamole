@@ -66,6 +66,7 @@ func Provider() *schema.Provider {
 			"guacamole_connection_vnc":        guacamoleConnectionVNC(),
 			"guacamole_connection_kubernetes": guacamoleConnectionKubernetes(),
 			"guacamole_connection_group":      guacamoleConnectionGroup(),
+			"guacamole_sharing_profile":       guacamoleSharingProfile(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"guacamole_user":                  dataSourceUser(),
@@ -76,6 +77,7 @@ func Provider() *schema.Provider {
 			"guacamole_connection_vnc":        dataSourceConnectionVNC(),
 			"guacamole_connection_kubernetes": dataSourceConnectionKubernetes(),
 			"guacamole_connection_group":      dataSourceConnectionGroup(),
+			"guacamole_sharing_profile":       dataSourceSharingProfile(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
