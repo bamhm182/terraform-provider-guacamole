@@ -63,6 +63,18 @@ func guacamoleUserGroup() *schema.Resource {
 				Optional:    true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
+			"member_groups": {
+				Type:        schema.TypeSet,
+				Description: "User group identifiers that are direct members of this group",
+				Optional:    true,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
+			"member_users": {
+				Type:        schema.TypeSet,
+				Description: "Usernames of users that are direct members of this group",
+				Optional:    true,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -122,6 +134,32 @@ func resourceUserGroupCreate(ctx context.Context, d *schema.ResourceData, m inte
 		}
 	}
 
+	// Member groups (child groups nested inside this group)
+	memberGroups := setToStringSlice(d.Get("member_groups").(*schema.Set))
+	if len(memberGroups) > 0 {
+		var ops []guacamole.PatchOperation
+		for _, g := range memberGroups {
+			ops = append(ops, guacamole.AddGroupMembership(g))
+		}
+		if err := client.UpdateUserGroupMemberGroups(ctx, created.Identifier, ops); err != nil {
+			_ = client.DeleteUserGroup(ctx, created.Identifier)
+			return diag.FromErr(fmt.Errorf("set member groups: %w", err))
+		}
+	}
+
+	// Member users (individual users nested inside this group)
+	memberUsers := setToStringSlice(d.Get("member_users").(*schema.Set))
+	if len(memberUsers) > 0 {
+		var ops []guacamole.PatchOperation
+		for _, u := range memberUsers {
+			ops = append(ops, guacamole.AddGroupMembership(u))
+		}
+		if err := client.UpdateUserGroupMemberUsers(ctx, created.Identifier, ops); err != nil {
+			_ = client.DeleteUserGroup(ctx, created.Identifier)
+			return diag.FromErr(fmt.Errorf("set member users: %w", err))
+		}
+	}
+
 	return resourceUserGroupRead(ctx, d, m)
 }
 
@@ -169,6 +207,18 @@ func resourceUserGroupRead(ctx context.Context, d *schema.ResourceData, m interf
 		connectionGroups = append(connectionGroups, id)
 	}
 	d.Set("connection_groups", connectionGroups)
+
+	memberGroups, err := client.GetUserGroupMemberGroups(ctx, id)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("get member groups: %w", err))
+	}
+	d.Set("member_groups", memberGroups)
+
+	memberUsers, err := client.GetUserGroupMemberUsers(ctx, id)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("get member users: %w", err))
+	}
+	d.Set("member_users", memberUsers)
 
 	return nil
 }
@@ -266,6 +316,44 @@ func resourceUserGroupUpdate(ctx context.Context, d *schema.ResourceData, m inte
 		}
 		if len(ops) > 0 {
 			if err := client.UpdateUserGroupPermissions(ctx, d.Id(), ops); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+	}
+
+	if d.HasChange("member_groups") {
+		old, new := d.GetChange("member_groups")
+		oldMGs := setToStringSlice(old.(*schema.Set))
+		newMGs := setToStringSlice(new.(*schema.Set))
+
+		var ops []guacamole.PatchOperation
+		for _, g := range sliceDiff(oldMGs, newMGs, false) {
+			ops = append(ops, guacamole.RemoveGroupMembership(g))
+		}
+		for _, g := range sliceDiff(newMGs, oldMGs, false) {
+			ops = append(ops, guacamole.AddGroupMembership(g))
+		}
+		if len(ops) > 0 {
+			if err := client.UpdateUserGroupMemberGroups(ctx, d.Id(), ops); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+	}
+
+	if d.HasChange("member_users") {
+		old, new := d.GetChange("member_users")
+		oldMUs := setToStringSlice(old.(*schema.Set))
+		newMUs := setToStringSlice(new.(*schema.Set))
+
+		var ops []guacamole.PatchOperation
+		for _, u := range sliceDiff(oldMUs, newMUs, false) {
+			ops = append(ops, guacamole.RemoveGroupMembership(u))
+		}
+		for _, u := range sliceDiff(newMUs, oldMUs, false) {
+			ops = append(ops, guacamole.AddGroupMembership(u))
+		}
+		if len(ops) > 0 {
+			if err := client.UpdateUserGroupMemberUsers(ctx, d.Id(), ops); err != nil {
 				return diag.FromErr(err)
 			}
 		}

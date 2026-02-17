@@ -62,6 +62,43 @@ func testAccCheckGuacamoleUserGroupConfigBasic(definition string) string {
 	`, definition)
 }
 
+func TestAccGuacamoleUserGroupMembership(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckGuacamoleUserGroupDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckGuacamoleUserGroupMembershipConfig(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGuacamoleUserGroupExists("guacamole_user_group.parent"),
+					resource.TestCheckResourceAttr("guacamole_user_group.parent", "identifier", "testParentGroup"),
+					testAccCheckTestSliceVals("guacamole_user_group.parent", "member_groups", []string{"testMemberGroup"}),
+					testAccCheckTestSliceVals("guacamole_user_group.parent", "member_users", []string{"testMemberUser"}),
+				),
+			},
+		},
+	})
+}
+
+func testAccCheckGuacamoleUserGroupMembershipConfig() string {
+	return `
+	resource "guacamole_user_group" "member_group" {
+		identifier = "testMemberGroup"
+	}
+
+	resource "guacamole_user" "member_user" {
+		username = "testMemberUser"
+	}
+
+	resource "guacamole_user_group" "parent" {
+		identifier   = "testParentGroup"
+		member_groups = [guacamole_user_group.member_group.identifier]
+		member_users  = [guacamole_user.member_user.username]
+	}
+	`
+}
+
 func testAccCheckGuacamoleUserGroupExists(resourceName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourceName]
